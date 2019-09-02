@@ -106,6 +106,7 @@ export class AppComponent {
     this.foundBestPath = false;
     this.initialDistance = 0;
     this.bestDistance = 0;
+    this.locationForms = [null, null, null, null];
   }
 
   chooseLocation(event) {

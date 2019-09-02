@@ -11,7 +11,6 @@
       <span id="place-address"></span>
   </div>
 
-
   <!-- Next steps: Post to Github, clean up console and UI bugs (showingPath etc.),
   change markers on map, unit discrepancy -->
 
@@ -21,8 +20,8 @@
         <form>
         <h3>Enter Locations</h3>
 
-        <div *ngFor="let location of locationForms; let i = index">
-            <app-location-entry counter="{{i+1}}" [map]="map"
+        <div class="locations">
+            <app-location-entry *ngFor="let location of locationForms; let i = index" counter="{{i+1}}" [map]="map"
             [chosenLocations]="chosenLocations" (notify)="setMarker($event)"></app-location-entry>
         </div>
 
