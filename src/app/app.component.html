@@ -29,22 +29,30 @@
         <div class="add-location">
           <button mat-button color="primary" (click)="addLocation()">+Add Location</button>
         </div>
-        <div class="form-buttons">
-          <button mat-raised-button (click)="submitForm()">Submit</button>
-          <button mat-raised-button (click)="clearForm()">Clear</button>
+        <div>
+          <button class="form-buttons" mat-raised-button (click)="submitForm()">Submit</button>
+          <button class="form-buttons" mat-raised-button (click)="clearForm()">Clear</button>
         </div>
 
       </div>
 
+      <!-- Next steps: Displaying directions better, markers, readme, expand to 4 distance matrices -->
+      <!-- <div *ngIf="loading"><h5>Loading</h5></div> -->
 
       <div *ngIf="showingDirections" class="directions-display" id="directions-panel">
-        <div *ngIf="foundBestPath">
+        <div *ngIf="foundBestPath && bestDistance > 0">
           <h4>Initial Distance: {{ formatDistance(initialDistance) }} kilometers</h4>
           <h4>Simulated Annealing Distance: {{ formatDistance(bestDistance) }} kilometers</h4>
+          <h4> Route Order: </h4>
+          <h5 *ngFor="let elem of bestArray; let i = index">{{i+1}}. {{elem.formatted_address}}</h5>
+          <h5>{{bestArray.length + 1}}. {{bestArray[0].formatted_address}}</h5>
+          <!-- <button matButton>Detailed Directions</button> -->
+          </div>
          <br>
-          <h4>Optimal Route Directions</h4>
-        </div>
+
+
       </div>
+
     </div>
 
 

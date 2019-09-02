@@ -16,7 +16,7 @@ export class AppComponent {
   locationForms = [null,null,null,null];
   markedLocations = {};
   initialDistance = 0;
-  bestDistance = 0;
+  bestDistance = -1;
   showingPath = false;
   foundBestPath = false;
   directionRenderers = new Array<any>();
@@ -24,6 +24,8 @@ export class AppComponent {
   distanceMap = new Map();
   addressArray = [];
   showingDirections = false;
+  loading = false;
+  bestArray = [];
 
 
   @ViewChild('map', {static: true}) mapElement: any;
@@ -107,6 +109,7 @@ export class AppComponent {
     this.initialDistance = 0;
     this.bestDistance = 0;
     this.locationForms = [null, null, null, null];
+      document.querySelector(".location-inputs").style.width = "100%";
   }
 
   chooseLocation(event) {
@@ -136,13 +139,14 @@ export class AppComponent {
 
   async submitForm() {
     let locationsArray = [];
-
+    this.loading = true;
     this.chosenLocations.forEach(l => {
       locationsArray.push(l);
       this.addressArray.push(l.formatted_address);
     })
 
     this.distanceMatrix = await this.getDistanceMatrix(this.addressArray);
+    document.querySelector(".location-inputs").style.width = "20%";
 
     let counter = 0;
     //Draws initial solution path, calculates initial distance
@@ -158,8 +162,10 @@ export class AppComponent {
       //this.renderPath(response, this.map, this.directionRenderers);
     }
 
+    let responses = new Array<any>();
     if(locationsArray.length > 3) {
       let bestArray = await this.simulatedAnnealing(locationsArray);
+      this.bestArray = bestArray;
       this.directionRenderers.forEach(r => {
         r.setMap(null);
       })
@@ -172,12 +178,22 @@ export class AppComponent {
         } else {
           response = await this.getDirectionsServiceResponse(bestArray[i], bestArray[0]);
         }
-        this.renderPath(response, this.map, this.directionRenderers, document.getElementById('directions-panel'));
+        responses.push(response);
+        //this.renderPath(response, this.map, this.directionRenderers, document.getElementById('directions-panel'));
       }
+      let index = 1;
+      responses.forEach(r => {
+        this.renderPath(r, this.map, this.directionRenderers, document.getElementById('directions-panel'), index);
+        index++;
+      })
       this.bestDistance = this.calculateDistance(bestArray);
+      // this.directionRenderers.forEach(dr => {
+      //   dr.setPanel(directionsPanel);
+      // })
+
     } else {
-        this.foundBestPath = true;
         this.showingDirections = true;
+        this.foundBestPath = true;
         this.bestDistance = this.initialDistance;
         for(var i = 0; i < locationsArray.length; i++) {
           let response;
@@ -186,9 +202,21 @@ export class AppComponent {
           } else {
             response = await this.getDirectionsServiceResponse(locationsArray[i], locationsArray[0]);
           }
-          this.renderPath(response, this.map, this.directionRenderers, document.getElementById('directions-panel'));
+          responses.push(response);
+          //this.renderPath(response, this.map, this.directionRenderers, document.getElementById('directions-panel'));
         }
+        let index = 1;
+        responses.forEach(r => {
+          this.renderPath(r, this.map, this.directionRenderers, document.getElementById('directions-panel'), index);
+          index++;
+        })
+        // let directionsPanel = document.getElementById('directions-panel');
+        // this.directionRenderers.forEach(dr => {
+        //   dr.setPanel(directionsPanel);
+        // })
     }
+
+    this.loading = false;
 
 
     }
@@ -345,12 +373,18 @@ export class AppComponent {
   }
 
 
-  renderPath(result, map, renderArray, directionsDiv) {
-    var directionsRenderer = new google.maps.DirectionsRenderer();
+  renderPath(result, map, renderArray, directionsDiv, number) {
+    var options = {
+      suppressMarkers: true
+    }
+    var directionsRenderer = new google.maps.DirectionsRenderer(options);
     renderArray.push(directionsRenderer);
     directionsRenderer.setMap(map);
     directionsRenderer.setDirections(result);
-    directionsRenderer.setPanel(directionsDiv);
+    return new Promise((resolve, reject) => {
+      resolve(true);
+    })
+    //directionsRenderer.setPanel(directionsDiv);
   }
 
   getDistanceBetweenPlaces(start: any, end: any): number {
