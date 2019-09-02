@@ -1,0 +1,55 @@
+
+<div style="text-align:center">
+  <h1>
+    Traveling Salesman
+  </h1>
+
+  <div #map style="width:85%;height:400px;margin:auto"></div>
+  <div id="address-content">
+      <img src="" width="16" height="16" id="place-icon">
+      <span id="place-name"  class="title"></span><br>
+      <span id="place-address"></span>
+  </div>
+
+
+  <!-- Next steps: Post to Github, clean up console and UI bugs (showingPath etc.),
+  change markers on map, unit discrepancy -->
+
+    <div class="directions-container">
+
+      <div class="location-inputs">
+        <form>
+        <h3>Enter Locations</h3>
+
+        <div *ngFor="let location of locationForms; let i = index">
+            <app-location-entry counter="{{i+1}}" [map]="map"
+            [chosenLocations]="chosenLocations" (notify)="setMarker($event)"></app-location-entry>
+        </div>
+
+        </form>
+        <div class="add-location">
+          <button mat-button color="primary" (click)="addLocation()">+Add Location</button>
+        </div>
+        <div class="form-buttons">
+          <button mat-raised-button (click)="submitForm()">Submit</button>
+          <button mat-raised-button (click)="clearForm()">Clear</button>
+        </div>
+
+      </div>
+
+
+      <div *ngIf="showingDirections" class="directions-display" id="directions-panel">
+        <div *ngIf="foundBestPath">
+          <h4>Initial Distance: {{ formatDistance(initialDistance) }} kilometers</h4>
+          <h4>Simulated Annealing Distance: {{ formatDistance(bestDistance) }} kilometers</h4>
+         <br>
+          <h4>Optimal Route Directions</h4>
+        </div>
+      </div>
+    </div>
+
+
+
+
+
+<router-outlet></router-outlet>

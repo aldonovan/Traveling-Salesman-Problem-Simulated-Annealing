@@ -1,0 +1,31 @@
+agm-map {
+  height: 400px;
+}
+
+.location-inputs {
+  display: flex;
+  flex-direction: column;
+}
+
+.location-inputs mat-form-field {
+  margin: auto;
+}
+
+button {
+  margin: auto;
+}
+
+.form-buttons {
+  display: flex;
+  // width: 25%;
+  // margin: auto;
+}
+
+.directions-container {
+  display: flex;
+  justify-content: space-around;
+}
+
+.directions-display {
+  width: 55%;
+}
