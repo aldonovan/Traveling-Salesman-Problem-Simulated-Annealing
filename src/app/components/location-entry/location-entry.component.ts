@@ -35,7 +35,6 @@ export class LocationEntryComponent implements OnInit {
         global.chosenLocations.delete(global.chosenPlace);
       }
       global.chosenPlace = place;
-      console.log(global.chosenLocations);
     })
   }
 

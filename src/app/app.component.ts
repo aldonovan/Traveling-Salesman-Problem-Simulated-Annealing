@@ -8,9 +8,6 @@ type location = {latitude: number, longitude: number};
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
-  title = 'maps';
-  latitude = 51.678418;
-  longitude = 7.809007;
   markers = new Array<any>();
   chosenLocations = new Set();
   locationForms = [null,null,null,null];
@@ -24,10 +21,7 @@ export class AppComponent {
   distanceMap = new Map();
   addressArray = [];
   showingDirections = false;
-  loading = false;
   bestArray = [];
-
-
   @ViewChild('map', {static: true}) mapElement: any;
   map: google.maps.Map;
   infoWindow = new google.maps.InfoWindow({content: "New message"});
@@ -51,9 +45,6 @@ export class AppComponent {
              lat: position.coords.latitude,
              lng: position.coords.longitude
            };
-           // infoWindow.setPosition(pos);
-           // infoWindow.setContent('Location found.');
-           // infoWindow.open(map);
            map.setCenter(pos);
          }, function() {
            this.handleLocationError(true, this.infoWindow, this.map.getCenter());
@@ -73,6 +64,151 @@ export class AppComponent {
      infoWindow.open(this.map);
    }
 
+   async submitForm() {
+     let locationsArray = [];
+     this.chosenLocations.forEach(l => {
+       locationsArray.push(l);
+       this.addressArray.push(l.formatted_address);
+     })
+
+     this.distanceMatrix = await this.getDistanceMatrix(this.addressArray);
+     document.querySelector(".location-inputs").style.width = "20%";
+
+     //Calculates initial distance
+     for(var i = 0; i < locationsArray.length; i++) {
+       if(i < locationsArray.length - 1) {
+         this.initialDistance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[i+1]);
+       } else {
+         this.initialDistance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[0]);
+       }
+     }
+
+     let responses = new Array<any>();
+     if(locationsArray.length > 3) {
+       let bestArray = await this.simulatedAnnealing(locationsArray);
+       this.bestDistance = this.calculateDistance(bestArray);
+       this.bestArray = bestArray;
+       await this.renderArray(bestArray);
+     } else {
+       this.bestDistance = this.initialDistance;
+       this.bestArray = locationsArray;
+       await this.renderArray(locationsArray);
+     }
+     this.showingDirections = true;
+     this.foundBestPath = true;
+   }
+
+     async renderArray(locationsArray) {
+       let responses = new Array<any>();
+       for(var i = 0; i < locationsArray.length; i++) {
+         let response;
+         if(i < locationsArray.length - 1) {
+           response = await this.getDirectionsServiceResponse(locationsArray[i], locationsArray[i+1]);
+         } else {
+           response = await this.getDirectionsServiceResponse(locationsArray[i], locationsArray[0]);
+         }
+         responses.push(response);
+       }
+       responses.forEach(r => {
+         this.renderPath(r, this.map, this.directionRenderers);
+       })
+     }
+
+
+   getDistanceMatrix(addressArray) : Promise<any[]> {
+     return new Promise((resolve, reject) => {
+       var matrixService = new google.maps.DistanceMatrixService();
+       matrixService.getDistanceMatrix({
+         origins: addressArray,
+         destinations: addressArray,
+         travelMode: google.maps.TravelMode["DRIVING"],
+       }, function(response, status) {
+         if(status == google.maps.DistanceMatrixStatus["OK"]) {
+           resolve(response.rows);
+         } else {
+           console.log(status);
+           reject("Could not get distance matrix");
+         }
+       });
+     })
+   }
+
+
+   getDirectionsServiceResponse(location1, location2): Promise<any> {
+     var directionService = new google.maps.DirectionsService();
+     let request = {
+       origin: location1.formatted_address,
+       destination: location2.formatted_address,
+       travelMode: google.maps.TravelMode["DRIVING"]
+     }
+     return new Promise((resolve, reject) => {
+       directionService.route(request, function(response, status) {
+           if(status == google.maps.DirectionsStatus["OK"]) {
+             resolve(response);
+           } else {
+             reject("Error with directions");
+           }
+       })
+     })
+   }
+
+
+
+     async simulatedAnnealing(locationsArray): Promise<Array<any>> {
+       let bestArray = locationsArray.slice(0);
+       let bestDistance = this.initialDistance;
+       let temperature = 10000;
+       let coolingRate = 0.003;
+       let currentDistance = this.initialDistance;
+       let iteration = 0;
+       while(temperature > 1) {
+         let position1 = Math.floor(Math.random()*locationsArray.length);
+         let position2 = Math.floor(Math.random()*locationsArray.length);
+         // let currAdjacentDistance = this.getCurrentDistance(position1, position2, locationsArray);
+         // let newAdjacentDistance = this.getNewDistance(position1, position2, locationsArray);
+         // let newDistance = currentDistance;
+         // newDistance += currAdjacentDistance - newAdjacentDistance;
+         this.swap(position1, position2, locationsArray);
+         let newDistance = this.calculateDistance(locationsArray);
+         this.swap(position1, position2, locationsArray);
+         if(this.acceptanceProbability(currentDistance, newDistance, temperature) > Math.random()) {
+           this.swap(position1, position2, locationsArray);
+           if(this.calculateDistance(locationsArray) - newDistance > 1) {
+             console.log("Error: Distances are incorrect.");
+           }
+           currentDistance = newDistance;
+           if(currentDistance < bestDistance) {
+             bestArray = locationsArray.slice(0);
+             bestDistance = currentDistance;
+           }
+         }
+           temperature *= 1 - coolingRate;
+       }
+       return new Promise((resolve, reject) => {
+         resolve(bestArray);
+       })
+     }
+
+     acceptanceProbability(dist1: number, dist2: number, temp: number) {
+       if(dist2 < dist1) return 1;
+       return Math.exp((dist1 - dist2)/temp);
+     }
+
+     calculateDistance(locationsArray) {
+       let distance = 0;
+       for(var i = 0; i < locationsArray.length - 1; i++) {
+         distance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[i+1]);
+       }
+       distance += this.getDistanceBetweenPlaces(locationsArray[locationsArray.length-1], locationsArray[0]);
+       return distance;
+     }
+
+     swap(index1, index2, locationsArray) {
+       let temp = locationsArray[index1];
+       locationsArray[index1] = locationsArray[index2];
+       locationsArray[index2] = temp;
+     }
+
   //Creates marker at given latitude and longitude, title
   createMarker(latitude: number, longitude: number, titleString: string) {
     let latLng = new google.maps.LatLng(latitude, longitude);
@@ -83,7 +219,17 @@ export class AppComponent {
     this.map.setCenter(latLng);
     this.markers.push(newMarker);
     newMarker.setMap(this.map);
+    this.fitMapBounds();
     return newMarker;
+  }
+
+  //Controls zooming in and out of the map based on markers placed
+  fitMapBounds() {
+    var boundaries = new google.maps.LatLngBounds();
+    for (let i = 0; i < this.markers.length; i++) {
+     boundaries.extend(this.markers[i].getPosition());
+    }
+    this.map.fitBounds(boundaries);
   }
 
   removeMarker(marker: any) {
@@ -109,16 +255,12 @@ export class AppComponent {
     this.initialDistance = 0;
     this.bestDistance = 0;
     this.locationForms = [null, null, null, null];
-      document.querySelector(".location-inputs").style.width = "100%";
+    document.querySelector(".location-inputs").style.width = "100%";
   }
 
   chooseLocation(event) {
     let newLocation = {latitude: event.coords.lat,
       longitude: event.coords.lng};
-  }
-
-  addLocation() {
-    this.locationForms.push(null);
   }
 
   setMarker(event: any) {
@@ -137,245 +279,44 @@ export class AppComponent {
     })
   }
 
-  async submitForm() {
-    let locationsArray = [];
-    this.loading = true;
-    this.chosenLocations.forEach(l => {
-      locationsArray.push(l);
-      this.addressArray.push(l.formatted_address);
-    })
 
-    this.distanceMatrix = await this.getDistanceMatrix(this.addressArray);
-    document.querySelector(".location-inputs").style.width = "20%";
-
-    let counter = 0;
-    //Draws initial solution path, calculates initial distance
-    for(var i = 0; i < locationsArray.length; i++) {
-      let request;
-      let response;
-      if(i < locationsArray.length - 1) {
-        this.initialDistance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[i+1]);
-      } else {
-        this.initialDistance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[0]);
-        this.showingPath = true;
-      }
-      //this.renderPath(response, this.map, this.directionRenderers);
-    }
-
-    let responses = new Array<any>();
-    if(locationsArray.length > 3) {
-      let bestArray = await this.simulatedAnnealing(locationsArray);
-      this.bestArray = bestArray;
-      this.directionRenderers.forEach(r => {
-        r.setMap(null);
-      })
-      this.foundBestPath = true;
-      this.showingDirections = true;
-      for(var i = 0; i < bestArray.length; i++) {
-        let response;
-        if(i < bestArray.length - 1) {
-          response = await this.getDirectionsServiceResponse(bestArray[i], bestArray[i+1]);
-        } else {
-          response = await this.getDirectionsServiceResponse(bestArray[i], bestArray[0]);
-        }
-        responses.push(response);
-        //this.renderPath(response, this.map, this.directionRenderers, document.getElementById('directions-panel'));
-      }
-      let index = 1;
-      responses.forEach(r => {
-        this.renderPath(r, this.map, this.directionRenderers, document.getElementById('directions-panel'), index);
-        index++;
-      })
-      this.bestDistance = this.calculateDistance(bestArray);
-      // this.directionRenderers.forEach(dr => {
-      //   dr.setPanel(directionsPanel);
-      // })
-
-    } else {
-        this.showingDirections = true;
-        this.foundBestPath = true;
-        this.bestDistance = this.initialDistance;
-        for(var i = 0; i < locationsArray.length; i++) {
-          let response;
-          if(i < locationsArray.length - 1) {
-            response = await this.getDirectionsServiceResponse(locationsArray[i], locationsArray[i+1]);
-          } else {
-            response = await this.getDirectionsServiceResponse(locationsArray[i], locationsArray[0]);
-          }
-          responses.push(response);
-          //this.renderPath(response, this.map, this.directionRenderers, document.getElementById('directions-panel'));
-        }
-        let index = 1;
-        responses.forEach(r => {
-          this.renderPath(r, this.map, this.directionRenderers, document.getElementById('directions-panel'), index);
-          index++;
-        })
-        // let directionsPanel = document.getElementById('directions-panel');
-        // this.directionRenderers.forEach(dr => {
-        //   dr.setPanel(directionsPanel);
-        // })
-    }
-
-    this.loading = false;
+  // getCurrentDistance(index1, index2, locationsArray): number {
+  //   let distance1 = this.getBeforeDistance(index1, locationsArray);
+  //   let distance2 = this.getBeforeDistance(index2, locationsArray);
+  //   let distance3 = this.getNextDistance(index1, locationsArray);
+  //   let distance4 = this.getNextDistance(index2, locationsArray);
+  //   return distance1+distance2+distance3+distance4;
+  // }
+  //
+  // getNewDistance(index1, index2, locationsArray): number  {
+  //   this.swap(index1, index2, locationsArray);
+  //   let distance = this.getCurrentDistance(index1, index2, locationsArray);
+  //   this.swap(index1, index2, locationsArray);
+  //   return distance;
+  // }
+  //
+  //
+  // getBeforeDistance(index, locationsArray): number  {
+  //
+  //   if(index == 0) {
+  //     return this.getDistanceBetweenPlaces(locationsArray[locationsArray.length - 1], locationsArray[0]);
+  //   }
+  //   return this.getDistanceBetweenPlaces(locationsArray[index - 1], locationsArray[index]);
+  // }
+  //
+  // getNextDistance(index, locationsArray): number {
+  //   if(index == locationsArray.length - 1) {
+  //     return this.getDistanceBetweenPlaces(locationsArray[index], locationsArray[0]);
+  //   }
+  //   return this.getDistanceBetweenPlaces(locationsArray[index], locationsArray[index+1]);
+  // }
 
 
-    }
-
-
-  getDistanceMatrix(addressArray) : Promise<any[]> {
-    return new Promise((resolve, reject) => {
-      var matrixService = new google.maps.DistanceMatrixService();
-      matrixService.getDistanceMatrix({
-        origins: addressArray,
-        destinations: addressArray,
-        travelMode: google.maps.TravelMode["DRIVING"],
-      }, function(response, status) {
-        if(status == google.maps.DistanceMatrixStatus["OK"]) {
-          resolve(response.rows);
-        } else {
-          console.log(status);
-          reject("Could not get distance matrix");
-        }
-      });
-    })
-  }
-
-
-  getDirectionsServiceResponse(location1, location2): Promise<any> {
-    var directionService = new google.maps.DirectionsService();
-    let request = {
-      origin: location1.formatted_address,
-      destination: location2.formatted_address,
-      travelMode: google.maps.TravelMode["DRIVING"]
-    }
-    return new Promise((resolve, reject) => {
-      directionService.route(request, function(response, status) {
-          if(status == google.maps.DirectionsStatus["OK"]) {
-            resolve(response);
-          } else {
-            reject("Error with directions");
-          }
-      })
-    })
-  }
-
-  async simulatedAnnealing(locationsArray): Promise<Array<any>> {
-    let bestArray = locationsArray.slice(0);
-    let bestDistance = this.initialDistance;
-    let temperature = 10000;
-    let coolingRate = 0.003;
-    let currentDistance = this.initialDistance;
-    let iteration = 0;
-    while(temperature > 1) {
-      let position1 = Math.floor(Math.random()*locationsArray.length);
-      let position2 = Math.floor(Math.random()*locationsArray.length);
-      // let currAdjacentDistance = this.getCurrentDistance(position1, position2, locationsArray);
-      // let newAdjacentDistance = this.getNewDistance(position1, position2, locationsArray);
-      // let newDistance = currentDistance;
-      // newDistance += currAdjacentDistance - newAdjacentDistance;
-      this.swap(position1, position2, locationsArray);
-      let newDistance = this.calculateDistance(locationsArray);
-      this.swap(position1, position2, locationsArray);
-      if(this.acceptanceProbability(currentDistance, newDistance, temperature) > Math.random()) {
-        this.swap(position1, position2, locationsArray);
-        if(this.calculateDistance(locationsArray) - newDistance > 1) {
-          console.log("Error: Distances are incorrect.");
-        }
-        currentDistance = newDistance;
-        if(currentDistance < bestDistance) {
-          bestArray = locationsArray.slice(0);
-          bestDistance = currentDistance;
-        }
-      }
-        temperature *= 1 - coolingRate;
-    }
-    console.log("The minimum distance is " + bestDistance);
-
-    return new Promise((resolve, reject) => {
-      resolve(bestArray);
-    })
-  }
-
-  calculateDistance(locationsArray) {
-    let distance = 0;
-    for(var i = 0; i < locationsArray.length - 1; i++) {
-      distance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[i+1]);
-    }
-    distance += this.getDistanceBetweenPlaces(locationsArray[locationsArray.length-1], locationsArray[0]);
-    return distance;
-  }
-
-  acceptanceProbability(dist1: number, dist2: number, temp: number) {
-    if(dist2 < dist1) return 1;
-    return Math.exp((dist1 - dist2)/temp);
-  }
-
-  getCurrentDistance(index1, index2, locationsArray): number {
-    let distance1 = this.getBeforeDistance(index1, locationsArray);
-    let distance2 = this.getBeforeDistance(index2, locationsArray);
-    let distance3 = this.getNextDistance(index1, locationsArray);
-    let distance4 = this.getNextDistance(index2, locationsArray);
-    return distance1+distance2+distance3+distance4;
-
-    // const promise1 = await this.getBeforeDistance(index1, locationsArray);
-    // console.log(1);
-    // const promise2 = await this.getBeforeDistance(index2, locationsArray);
-    // console.log(2);
-    // const promise3 = await this.getNextDistance(index1, locationsArray);
-    // console.log(3);
-    // const promise4 = await this.getNextDistance(index2, locationsArray);
-    // console.log(4);
-    //
-    // //Something wrong with how this is being returned
-    // return new Promise((resolve, reject) => {
-    //   console.log(promise1 + promise2 + promise3 + promise4);
-    //   resolve(promise1 + promise2 + promise3 + promise4);
-    // })
-    // return new Promise((resolve, reject)=>{
-    //   const promise1 = this.getBeforeDistance(index1, locationsArray);
-    //   const promise2 = this.getBeforeDistance(index2, locationsArray);
-    //   const promise3 = this.getNextDistance(index1, locationsArray);
-    //   const promise4 = this.getNextDistance(index2, locationsArray);
-    //   const getDistance = Promise.all([promise1, promise2, promise3, promise4]).then((values)=> {
-    //       let distance = 0;
-    //       values.forEach(v => {distance += v});
-    //       resolve(distance);
-    //     })
-    // })
-  }
-
-  getNewDistance(index1, index2, locationsArray): number  {
-    this.swap(index1, index2, locationsArray);
-    let distance = this.getCurrentDistance(index1, index2, locationsArray);
-    this.swap(index1, index2, locationsArray);
-    return distance;
-  }
-
-  swap(index1, index2, locationsArray) {
-    let temp = locationsArray[index1];
-    locationsArray[index1] = locationsArray[index2];
-    locationsArray[index2] = temp;
-  }
-
-  getBeforeDistance(index, locationsArray): number  {
-
-    if(index == 0) {
-      return this.getDistanceBetweenPlaces(locationsArray[locationsArray.length - 1], locationsArray[0]);
-    }
-    return this.getDistanceBetweenPlaces(locationsArray[index - 1], locationsArray[index]);
-  }
-
-  getNextDistance(index, locationsArray): number {
-    if(index == locationsArray.length - 1) {
-      return this.getDistanceBetweenPlaces(locationsArray[index], locationsArray[0]);
-    }
-    return this.getDistanceBetweenPlaces(locationsArray[index], locationsArray[index+1]);
-  }
-
-
-  renderPath(result, map, renderArray, directionsDiv, number) {
+  //Given a directions result, renders the result on the map
+  renderPath(result, map, renderArray) {
     var options = {
-      suppressMarkers: true
+      suppressMarkers: true,
+      preserveViewport: true
     }
     var directionsRenderer = new google.maps.DirectionsRenderer(options);
     renderArray.push(directionsRenderer);
@@ -384,18 +325,15 @@ export class AppComponent {
     return new Promise((resolve, reject) => {
       resolve(true);
     })
-    //directionsRenderer.setPanel(directionsDiv);
   }
 
   getDistanceBetweenPlaces(start: any, end: any): number {
     let startLocation = start.formatted_address;
     let endLocation = end.formatted_address;
-
     let position1 = this.addressArray.indexOf(startLocation);
     let position2 = this.addressArray.indexOf(endLocation);
     let distances : any = this.distanceMatrix[position1];
-    let meters = distances.elements[position2].distance.value;
-    return(meters / 1000);
+    return distances.elements[position2].distance.value / 1000;
   }
 
   computeDistance(result) : Promise<number> {
@@ -413,6 +351,4 @@ export class AppComponent {
   formatDistance(distance: number) {
     return Math.round(distance * 100) / 100;
   }
-
-
 }

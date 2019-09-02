@@ -27,7 +27,7 @@
 
         </form>
         <div class="add-location">
-          <button mat-button color="primary" (click)="addLocation()">+Add Location</button>
+          <button mat-button color="primary" (click)="locationForms.push(null)">+Add Location</button>
         </div>
         <div>
           <button class="form-buttons" mat-raised-button (click)="submitForm()">Submit</button>
@@ -41,8 +41,8 @@
 
       <div *ngIf="showingDirections" class="directions-display" id="directions-panel">
         <div *ngIf="foundBestPath && bestDistance > 0">
-          <h4>Initial Distance: {{ formatDistance(initialDistance) }} kilometers</h4>
-          <h4>Simulated Annealing Distance: {{ formatDistance(bestDistance) }} kilometers</h4>
+          <h4>Initial Distance: {{ formatDistance(initialDistance) }} km</h4>
+          <h4>Optimal Distance: {{ formatDistance(bestDistance) }} km</h4>
           <h4> Route Order: </h4>
           <h5 *ngFor="let elem of bestArray; let i = index">{{i+1}}. {{elem.formatted_address}}</h5>
           <h5>{{bestArray.length + 1}}. {{bestArray[0].formatted_address}}</h5>
