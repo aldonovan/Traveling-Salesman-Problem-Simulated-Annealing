@@ -72,23 +72,16 @@ export class AppComponent {
 
      this.distanceMatrix = await this.getDistanceMatrix(this.addressArray);
      (<HTMLElement>document.querySelector(".location-inputs")).style.width = "20%";
-
-     //Calculates initial distance
-     for(var i = 0; i < locationsArray.length; i++) {
-       if(i < locationsArray.length - 1) {
-         this.initialDistance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[i+1]);
-       } else {
-         this.initialDistance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[0]);
-       }
-     }
+     this.initialDistance = this.calculateTourDistance(locationsArray);
 
      let responses = new Array<any>();
      if(locationsArray.length > 3) {
        let bestArray = await this.simulatedAnnealing(locationsArray);
-       this.bestDistance = this.calculateDistance(bestArray);
+       this.bestDistance = this.calculateTourDistance(bestArray);
        this.bestArray = bestArray;
        await this.renderArray(bestArray);
      } else {
+       //If array has length less than 4, no need to optimize
        this.bestDistance = this.initialDistance;
        this.bestArray = locationsArray;
        await this.renderArray(locationsArray);
@@ -102,9 +95,9 @@ export class AppComponent {
        for(var i = 0; i < locationsArray.length; i++) {
          let response;
          if(i < locationsArray.length - 1) {
-           response = await this.getDirectionsServiceResponse(locationsArray[i], locationsArray[i+1]);
+           response = await this.getDirections(locationsArray[i], locationsArray[i+1]);
          } else {
-           response = await this.getDirectionsServiceResponse(locationsArray[i], locationsArray[0]);
+           response = await this.getDirections(locationsArray[i], locationsArray[0]);
          }
          responses.push(response);
        }
@@ -132,8 +125,8 @@ export class AppComponent {
      })
    }
 
-
-   getDirectionsServiceResponse(location1, location2): Promise<any> {
+   //Calls directions API to get directions between two locations
+   getDirections(location1, location2): Promise<any> {
      var directionService = new google.maps.DirectionsService();
      let request = {
        origin: location1.formatted_address,
@@ -151,58 +144,54 @@ export class AppComponent {
      })
    }
 
-
-
-     async simulatedAnnealing(locationsArray): Promise<Array<any>> {
-       let bestArray = locationsArray.slice(0);
-       let bestDistance = this.initialDistance;
-       let temperature = 10000;
-       let coolingRate = 0.003;
-       let currentDistance = this.initialDistance;
-       let iteration = 0;
-       while(temperature > 1) {
-         let position1 = Math.floor(Math.random()*locationsArray.length);
-         let position2 = Math.floor(Math.random()*locationsArray.length);
+   async simulatedAnnealing(locationsArray): Promise<Array<any>> {
+     let bestArray = locationsArray.slice(0);
+     let bestDistance = this.initialDistance;
+     let temperature = 10000;
+     let coolingRate = 0.003;
+     let currentDistance = this.initialDistance;
+     let iteration = 0;
+     while(temperature > 1) {
+       let position1 = Math.floor(Math.random()*locationsArray.length);
+       let position2 = Math.floor(Math.random()*locationsArray.length);
+       this.swap(position1, position2, locationsArray);
+       let newDistance = this.calculateTourDistance(locationsArray);
+       this.swap(position1, position2, locationsArray);
+       if(this.acceptanceProbability(currentDistance, newDistance, temperature) > Math.random()) {
          this.swap(position1, position2, locationsArray);
-         let newDistance = this.calculateDistance(locationsArray);
-         this.swap(position1, position2, locationsArray);
-         if(this.acceptanceProbability(currentDistance, newDistance, temperature) > Math.random()) {
-           this.swap(position1, position2, locationsArray);
-           if(this.calculateDistance(locationsArray) - newDistance > 1) {
-             console.log("Error: Distances are incorrect.");
-           }
-           currentDistance = newDistance;
-           if(currentDistance < bestDistance) {
-             bestArray = locationsArray.slice(0);
-             bestDistance = currentDistance;
-           }
+         currentDistance = newDistance;
+         if(currentDistance < bestDistance) {
+           bestArray = locationsArray.slice(0);
+           bestDistance = currentDistance;
          }
-           temperature *= 1 - coolingRate;
        }
-       return new Promise((resolve, reject) => {
-         resolve(bestArray);
-       })
+         temperature *= 1 - coolingRate;
      }
+     return new Promise((resolve, reject) => {
+       resolve(bestArray);
+     })
+   }
 
-     acceptanceProbability(dist1: number, dist2: number, temp: number) {
-       if(dist2 < dist1) return 1;
-       return Math.exp((dist1 - dist2)/temp);
-     }
+   acceptanceProbability(dist1: number, dist2: number, temp: number) {
+     if(dist2 < dist1) return 1;
+     return Math.exp((dist1 - dist2)/temp);
+   }
 
-     calculateDistance(locationsArray) {
-       let distance = 0;
-       for(var i = 0; i < locationsArray.length - 1; i++) {
-         distance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[i+1]);
-       }
-       distance += this.getDistanceBetweenPlaces(locationsArray[locationsArray.length-1], locationsArray[0]);
-       return distance;
+   //Distance between all consecutive entries + distance between last and first
+   calculateTourDistance(locationsArray) {
+     let distance = 0;
+     for(var i = 0; i < locationsArray.length - 1; i++) {
+       distance += this.getDistanceBetweenPlaces(locationsArray[i], locationsArray[i+1]);
      }
+     distance += this.getDistanceBetweenPlaces(locationsArray[locationsArray.length-1], locationsArray[0]);
+     return distance;
+   }
 
-     swap(index1, index2, locationsArray) {
-       let temp = locationsArray[index1];
-       locationsArray[index1] = locationsArray[index2];
-       locationsArray[index2] = temp;
-     }
+   swap(index1, index2, locationsArray) {
+     let temp = locationsArray[index1];
+     locationsArray[index1] = locationsArray[index2];
+     locationsArray[index2] = temp;
+   }
 
   //Creates marker at given latitude and longitude, title
   createMarker(latitude: number, longitude: number, titleString: string) {
@@ -227,10 +216,7 @@ export class AppComponent {
     this.map.fitBounds(boundaries);
   }
 
-  removeMarker(marker: any) {
-    marker.setMap(null);
-  }
-
+  //Resets UI
   clearForm() {
     this.markers.forEach(m => {
       m.setMap(null);
@@ -253,11 +239,7 @@ export class AppComponent {
     (<HTMLElement>document.querySelector(".location-inputs")).style.width = "100%";
   }
 
-  chooseLocation(event) {
-    let newLocation = {latitude: event.coords.lat,
-      longitude: event.coords.lng};
-  }
-
+  //When event occurs in location entry component, creates marker at specified location
   setMarker(event: any) {
     let latitude;
     let longitude;
@@ -268,7 +250,7 @@ export class AppComponent {
       newMarker = this.createMarker(latitude, longitude, "");
 
       if(this.markedLocations[event.counter]) {
-        this.removeMarker(this.markedLocations[event.counter]);
+        this.markedLocations[event.counter].setMap(null);
       }
       this.markedLocations[event.counter] = newMarker;
     })
@@ -296,18 +278,6 @@ export class AppComponent {
     let position2 = this.addressArray.indexOf(endLocation);
     let distances : any = this.distanceMatrix[position1];
     return distances.elements[position2].distance.value / 1000;
-  }
-
-  computeDistance(result) : Promise<number> {
-    return new Promise((resolve, request) => {
-      var total = 0;
-      var firstPath = result.routes[0];
-      for(var j = 0; j < firstPath.legs.length; j++) {
-        total += firstPath.legs[j].distance.value;
-      }
-      total /= 1000;
-      resolve(total);
-    })
   }
 
   formatDistance(distance: number) {

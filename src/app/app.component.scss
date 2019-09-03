@@ -1,14 +1,7 @@
-agm-map {
-  height: 400px;
-}
-
 .location-inputs {
   display: flex;
   flex-direction: column;
-}
-
-.location-inputs mat-form-field {
-  margin: auto;
+  width: 100%;
 }
 
 button {
@@ -25,10 +18,6 @@ button {
   margin: auto;
 }
 
-.location-inputs {
-  width: 100%;
-}
-
 .locations {
   width: 100%;
   display: flex;
@@ -36,6 +25,7 @@ button {
   flex-wrap: wrap;
   justify-content: space-around;
 }
+
 .locations app-location-entry {
   margin-right: 1%;
   margin-left: 1%;
