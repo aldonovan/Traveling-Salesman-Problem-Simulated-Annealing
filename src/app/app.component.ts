@@ -18,7 +18,6 @@ export class AppComponent {
   foundBestPath = false;
   directionRenderers = new Array<any>();
   distanceMatrix = new Array<any>();
-  distanceMap = new Map();
   addressArray = [];
   showingDirections = false;
   bestArray = [];
@@ -72,7 +71,7 @@ export class AppComponent {
      })
 
      this.distanceMatrix = await this.getDistanceMatrix(this.addressArray);
-     document.querySelector(".location-inputs").style.width = "20%";
+     (<HTMLElement>document.querySelector(".location-inputs")).style.width = "20%";
 
      //Calculates initial distance
      for(var i = 0; i < locationsArray.length; i++) {
@@ -164,10 +163,6 @@ export class AppComponent {
        while(temperature > 1) {
          let position1 = Math.floor(Math.random()*locationsArray.length);
          let position2 = Math.floor(Math.random()*locationsArray.length);
-         // let currAdjacentDistance = this.getCurrentDistance(position1, position2, locationsArray);
-         // let newAdjacentDistance = this.getNewDistance(position1, position2, locationsArray);
-         // let newDistance = currentDistance;
-         // newDistance += currAdjacentDistance - newAdjacentDistance;
          this.swap(position1, position2, locationsArray);
          let newDistance = this.calculateDistance(locationsArray);
          this.swap(position1, position2, locationsArray);
@@ -255,7 +250,7 @@ export class AppComponent {
     this.initialDistance = 0;
     this.bestDistance = 0;
     this.locationForms = [null, null, null, null];
-    document.querySelector(".location-inputs").style.width = "100%";
+    (<HTMLElement>document.querySelector(".location-inputs")).style.width = "100%";
   }
 
   chooseLocation(event) {
@@ -278,39 +273,6 @@ export class AppComponent {
       this.markedLocations[event.counter] = newMarker;
     })
   }
-
-
-  // getCurrentDistance(index1, index2, locationsArray): number {
-  //   let distance1 = this.getBeforeDistance(index1, locationsArray);
-  //   let distance2 = this.getBeforeDistance(index2, locationsArray);
-  //   let distance3 = this.getNextDistance(index1, locationsArray);
-  //   let distance4 = this.getNextDistance(index2, locationsArray);
-  //   return distance1+distance2+distance3+distance4;
-  // }
-  //
-  // getNewDistance(index1, index2, locationsArray): number  {
-  //   this.swap(index1, index2, locationsArray);
-  //   let distance = this.getCurrentDistance(index1, index2, locationsArray);
-  //   this.swap(index1, index2, locationsArray);
-  //   return distance;
-  // }
-  //
-  //
-  // getBeforeDistance(index, locationsArray): number  {
-  //
-  //   if(index == 0) {
-  //     return this.getDistanceBetweenPlaces(locationsArray[locationsArray.length - 1], locationsArray[0]);
-  //   }
-  //   return this.getDistanceBetweenPlaces(locationsArray[index - 1], locationsArray[index]);
-  // }
-  //
-  // getNextDistance(index, locationsArray): number {
-  //   if(index == locationsArray.length - 1) {
-  //     return this.getDistanceBetweenPlaces(locationsArray[index], locationsArray[0]);
-  //   }
-  //   return this.getDistanceBetweenPlaces(locationsArray[index], locationsArray[index+1]);
-  // }
-
 
   //Given a directions result, renders the result on the map
   renderPath(result, map, renderArray) {

@@ -3,7 +3,6 @@
   <h1>
     Traveling Salesman
   </h1>
-
   <div #map style="width:85%;height:400px;margin:auto"></div>
   <div id="address-content">
       <img src="" width="16" height="16" id="place-icon">
@@ -11,11 +10,7 @@
       <span id="place-address"></span>
   </div>
 
-  <!-- Next steps: Post to Github, clean up console and UI bugs (showingPath etc.),
-  change markers on map, unit discrepancy -->
-
     <div class="directions-container">
-
       <div class="location-inputs">
         <form>
         <h3>Enter Locations</h3>
@@ -36,9 +31,6 @@
 
       </div>
 
-      <!-- Next steps: Displaying directions better, markers, readme, expand to 4 distance matrices -->
-      <!-- <div *ngIf="loading"><h5>Loading</h5></div> -->
-
       <div *ngIf="showingDirections" class="directions-display" id="directions-panel">
         <div *ngIf="foundBestPath && bestDistance > 0">
           <h4>Initial Distance: {{ formatDistance(initialDistance) }} km</h4>
@@ -46,17 +38,9 @@
           <h4> Route Order: </h4>
           <h5 *ngFor="let elem of bestArray; let i = index">{{i+1}}. {{elem.formatted_address}}</h5>
           <h5>{{bestArray.length + 1}}. {{bestArray[0].formatted_address}}</h5>
-          <!-- <button matButton>Detailed Directions</button> -->
           </div>
          <br>
-
-
       </div>
-
     </div>
-
-
-
-
 
 <router-outlet></router-outlet>
